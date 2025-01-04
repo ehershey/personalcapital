@@ -1,9 +1,14 @@
 import requests
+import pickle
+import sys
+import os
 import re
 
 csrf_regexp = re.compile(r"globals.csrf='([a-f0-9-]+)'")
 base_url = 'https://home.personalcapital.com'
 api_endpoint = base_url + '/api'
+
+COOKIE_CACHE_FILE= os.path.join(os.environ["HOME"], ".personalcapitalsession")
 
 SP_HEADER_KEY = "spHeader"
 SUCCESS_KEY = "success"
@@ -36,14 +41,30 @@ class RequireTwoFactorException(Exception):
 class LoginFailedException(Exception):
     pass
 
+class AccessNotAvailableException(Exception):
+    pass
+
 class PersonalCapital(object):
     def __init__(self):
         self.__session = requests.Session()
+        self.__session.headers.update({'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15'})
+
+        try:
+            with open(COOKIE_CACHE_FILE, 'rb') as f:
+                self.__session.cookies.update(pickle.load(f))
+        except FileNotFoundError: # first run or no file
+            pass
         self.__csrf = ""
 
     def login(self, username, password):
+        #print(f"in {self}.login({username},{password})")
         initial_csrf = self.__get_csrf_from_home_page(base_url)
+        #print(f"username: {username}")
+        #print(f"password: {password}")
+        #print(f"initial_csrf: {initial_csrf}")
         csrf, auth_level = self.__identify_user(username, initial_csrf)
+        #print(f"csrf: {csrf}")
+        #print(f"auth_level: {auth_level}")
 
         if csrf and auth_level:
             self.__csrf = csrf
@@ -54,6 +75,14 @@ class PersonalCapital(object):
                 raise LoginFailedException(getErrorValue(result))
         else:
             raise LoginFailedException()
+        self.save_session()
+
+    def save_session(self):
+        #print(f"COOKIE_CACHE_FILE: {COOKIE_CACHE_FILE}")
+        with open(COOKIE_CACHE_FILE, 'wb') as f:
+            #print(f"dumping with a pickle to COOKIE_CACHE_FILE")
+            pickle.dump(self.__session.cookies, f)
+            #print(f"done")
 
     def authenticate_password(self, password):
         return self.__authenticate_password(password)
@@ -105,6 +134,10 @@ class PersonalCapital(object):
 
     def __get_csrf_from_home_page(self, url):
         r = self.__session.get(url)
+        #print(f"r.text: {r.text}")
+        if "not available" in r.text:
+            raise AccessNotAvailableException()
+
         found_csrf = csrf_regexp.search(r.text)
 
         if found_csrf:
@@ -175,7 +208,7 @@ class PersonalCapital(object):
     def __authenticate_password(self, passwd):
         data = {
             "bindDevice": "true",
-            "deviceName": "",
+            "deviceName": "personalcapital.py",
             "redirectTo": "",
             "skipFirstUse": "",
             "skipLinkAccount": "false",
@@ -184,4 +217,6 @@ class PersonalCapital(object):
             "apiClient": "WEB",
             "csrf": self.__csrf
         }
-        return self.post("/credential/authenticatePassword", data)
+        resp = self.post("/credential/authenticatePassword", data)
+        self.save_session()
+        return resp
