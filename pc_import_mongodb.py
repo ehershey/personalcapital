@@ -1,3 +1,18 @@
+#!/usr/bin/env -S uv run
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "flask==3.*",
+# # "locale",
+# "personalcapital",
+# "datetime ",
+# "pymongo",
+# # "os",
+# # "sys",
+# "requests",
+# ]
+# ///
+
 #!/usr/bin/python3
 #
 # environment variables:
@@ -33,6 +48,7 @@ db_name = "personal_capital"
 
 nw_collection_name = "net_worth"
 
+account_summary_collection_name = "account_summary"
 transaction_summary_collection_name = "transaction_summary"
 transaction_collection_name = "transactions"
 
@@ -42,6 +58,7 @@ db = client[db_name]
 nw_collection = db[nw_collection_name]
 transaction_collection = db[transaction_collection_name]
 transaction_summary_collection = db[transaction_summary_collection_name]
+account_summary_collection = db[account_summary_collection_name]
 
 pc = personalcapital.PersonalCapital()
 
@@ -69,6 +86,17 @@ nw = {"networth": networth}
 
 nw_inserted_id = nw_collection.insert_one(nw).inserted_id
 print(f"nw_inserted_id: {nw_inserted_id}")
+
+account_summary = accounts_response.json()['spData']
+
+print(f'Downloaded account summary with {len(account_summary['accounts'])} accounts')
+
+account_summary_inserted_id = account_summary_collection.insert_one(
+    account_summary).inserted_id
+print(f"account_summary_inserted_id: {account_summary_inserted_id}")
+
+
+
 
 now = datetime.now()
 date_format = '%Y-%m-%d'
