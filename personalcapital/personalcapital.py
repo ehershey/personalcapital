@@ -5,7 +5,7 @@ import os
 import re
 
 csrf_regexp = re.compile(r"globals.csrf='([a-f0-9-]+)'")
-base_url = 'https://home.personalcapital.com'
+base_url = 'https://pc-api.empower-retirement.com'
 api_endpoint = base_url + '/api'
 
 COOKIE_CACHE_FILE= os.path.join(os.environ["HOME"], ".personalcapitalsession")
